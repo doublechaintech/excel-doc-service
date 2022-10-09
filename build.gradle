@@ -15,7 +15,9 @@ dependencies {
     implementation 'io.quarkus:quarkus-resteasy-jackson'
     implementation 'io.quarkus:quarkus-arc'
     implementation 'cn.hutool:hutool-all:5.8.8'
-    implementation group: 'org.apache.poi', name: 'poi-ooxml-full', version: '5.2.0'
+    implementation 'org.apache.poi:poi-ooxml:5.2.0'
+    implementation group: 'org.apache.poi', name: 'poi-ooxml-full', version: '5.2.3'
+
     testImplementation 'io.quarkus:quarkus-junit5'
     testImplementation 'io.rest-assured:rest-assured'
 }
