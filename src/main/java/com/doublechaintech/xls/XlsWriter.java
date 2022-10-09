@@ -98,6 +98,13 @@ public class XlsWriter implements BlockWriter {
   }
 
   private Sheet ensureSheet(Block pBlock) {
+
+
+    if(workBook==null){
+      throw new IllegalStateException("Work book is NOT READY yet!")
+    }
+  
+
     String page = pBlock.getPage();
 
     // the sheet
