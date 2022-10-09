@@ -101,9 +101,9 @@ public class XlsWriter implements BlockWriter {
 
 
     if(workBook==null){
-      throw new IllegalStateException("Work book is NOT READY yet!")
+      throw new IllegalStateException("Work book is NOT READY yet!");
     }
-  
+
 
     String page = pBlock.getPage();
 
