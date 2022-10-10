@@ -1,5 +1,5 @@
 all:
-	quarkus build --native  --no-tests -Dquarkus.native.additional-build-args=--initialize-at-run-time=org.apache.poi.util.RandomSingleton
+	quarkus build --native  --no-tests 
 	cp build/excel-doc-service-1.0.0-SNAPSHOT-runner excel-doc-service 
 	./excel-doc-service -Xmx64m
 
