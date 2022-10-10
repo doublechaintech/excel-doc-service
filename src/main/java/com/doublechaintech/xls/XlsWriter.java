@@ -19,13 +19,13 @@ public class XlsWriter implements BlockWriter {
 
   public XlsWriter(String base64) {
     if (ObjectUtil.isEmpty(base64)) {
-      workBook = cn.hutool.poi.excel.WorkbookUtil.createBook(true);
+      workBook = new XSSFWorkbook();
       return;
     }
     byte[] decode = Base64.decode(base64);
     try {
       InputStream stream = new ByteArrayInputStream(decode);
-      workBook = WorkbookFactory.create(stream);
+      workBook = new XSSFWorkbook(stream);
     } catch (Exception e) {
       e.printStackTrace();
     }
