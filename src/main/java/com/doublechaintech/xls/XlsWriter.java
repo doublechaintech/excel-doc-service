@@ -59,7 +59,7 @@ public class XlsWriter implements BlockWriter {
     }
 
     protected void setCellValue(Cell cell, Block pBlock) {
-        cell.setCellStyle(getDefaultStyle());
+//        cell.setCellStyle(getDefaultStyle());
         cell.setCellValue(String.valueOf(pBlock.getValue()));
     }
 
