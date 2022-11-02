@@ -2,18 +2,14 @@ package com.doublechaintech.xls;
 
 import cn.hutool.core.codec.Base64;
 import cn.hutool.core.util.ObjectUtil;
+import org.apache.poi.common.Duplicatable;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.ss.util.CellUtil;
 import org.apache.poi.ss.util.WorkbookUtil;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.util.List;
-
-import static org.apache.poi.ss.util.CellUtil.*;
 
 public class XlsWriter implements BlockWriter {
   private Workbook workBook;
@@ -32,20 +28,61 @@ public class XlsWriter implements BlockWriter {
     }
   }
 
+  public XlsWriter(File templateFile) {
+    try {
+      workBook = WorkbookFactory.create(new FileInputStream(templateFile));
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+  }
+
   @Override
   public void append(Block pBl) {
     if (pBl == null) {
       return;
     }
 
-    // 增加边框
-    pBl.addProperty(BORDER_LEFT, BorderStyle.THIN)
-        .addProperty(BORDER_RIGHT, BorderStyle.THIN)
-        .addProperty(BORDER_TOP, BorderStyle.THIN)
-        .addProperty(BORDER_BOTTOM, BorderStyle.THIN);
-
     Cell cell = ensureCell(pBl);
     setCellValue(cell, pBl);
+
+    Block styleReferBlock = pBl.getStyleReferBlock();
+
+    // 样式引用
+    if (styleReferBlock != null) {
+      Cell styleCell = ensureCell(styleReferBlock);
+      CellStyle cellStyle = styleCell.getCellStyle();
+
+      if (cellStyle instanceof Duplicatable) {
+        Duplicatable copy = ((Duplicatable) cellStyle).copy();
+        cell.setCellStyle((CellStyle) copy);
+      } else {
+        cell.getCellStyle().cloneStyleFrom(cellStyle);
+      }
+
+      // 处理高度
+      String styleCellValue = styleCell.getStringCellValue();
+      String currentValue = cell.getStringCellValue();
+      if (ObjectUtil.isNotEmpty(styleCellValue) && ObjectUtil.isNotEmpty(currentValue)) {
+        int styleValueLength = styleCellValue.length();
+        int cellValueLength = currentValue.length();
+        int styleHeight = getHeight(styleReferBlock);
+        int styleColumnWidth = getWidth(styleReferBlock);
+        int cellColumnWidth = getWidth(pBl);
+        int lines =
+            (styleColumnWidth * cellValueLength + cellColumnWidth * styleValueLength - 1)
+                / (cellColumnWidth * styleValueLength);
+        if (lines > 1) {
+          // 高度，自动换行
+          short currentHeight = cell.getRow().getHeight();
+          short requiredHeight = (short) (styleHeight * lines);
+          if (currentHeight < requiredHeight) {
+            cell.getRow().setHeight(requiredHeight);
+          }
+          cell.getCellStyle().setWrapText(true);
+        }
+      }
+    }
+
     if (pBl.getProperties() != null) {
       Number fillPattern = (Number) pBl.getProperties().get("fillPattern");
       if (fillPattern != null) {
@@ -55,23 +92,49 @@ public class XlsWriter implements BlockWriter {
     }
   }
 
+  // 获取一个块的宽度
+  public int getWidth(Block block) {
+    int width = 0;
+    Sheet sheet = ensureSheet(block);
+    for (int i = block.getLeft(); i <= block.getRight(); i++) {
+      width += sheet.getColumnWidth(i);
+    }
+    return width;
+  }
+
+  // 获取一个块的高度
+  public int getHeight(Block block) {
+    int height = 0;
+    Sheet sheet = ensureSheet(block);
+    for (int i = block.getTop(); i <= block.getBottom(); i++) {
+      Row row = sheet.getRow(i);
+      if (row == null) {
+        row = sheet.createRow(i);
+      }
+      height += row.getHeight();
+    }
+    return height;
+  }
+
   @Override
   public void write(OutputStream out) throws IOException {
     workBook.write(out);
   }
 
-  public CellStyle getDefaultStyle() {
-    final CellStyle style = workBook.createCellStyle();
-    style.setBorderBottom(BorderStyle.THIN);
-    return style;
-  }
-
   protected void setCellValue(Cell cell, Block pBlock) {
-    cell.setCellStyle(getDefaultStyle());
     cell.setCellValue(String.valueOf(pBlock.getValue()));
   }
 
   private Cell ensureCell(Block pBlock) {
+    Row row = ensureRow(pBlock);
+    Cell cell = row.getCell(pBlock.getLeft());
+    if (cell == null) {
+      cell = row.createCell(pBlock.getLeft());
+    }
+    return cell;
+  }
+
+  private Row ensureRow(Block pBlock) {
     Sheet sheet = ensureSheet(pBlock);
 
     // region, let's create the region
@@ -91,13 +154,8 @@ public class XlsWriter implements BlockWriter {
     Row row = sheet.getRow(pBlock.getTop());
     if (row == null) {
       row = sheet.createRow(pBlock.getTop());
-      row.setHeight((short) 500);
     }
-    Cell cell = row.getCell(pBlock.getLeft());
-    if (cell == null) {
-      cell = row.createCell(pBlock.getLeft());
-    }
-    return cell;
+    return row;
   }
 
   private boolean regionExisted(Sheet pSheet, CellRangeAddress pRegion) {

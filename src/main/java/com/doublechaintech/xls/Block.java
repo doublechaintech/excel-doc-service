@@ -25,6 +25,9 @@ public class Block {
   // the value
   private Object value;
 
+  // style references
+  private Block styleReferBlock;
+
   // the properties, styles
   private Map<String, Object> properties;
 
@@ -101,5 +104,13 @@ public class Block {
 
   public Block withRedBgColor() {
     return withBgColor(10);
+  }
+
+  public Block getStyleReferBlock() {
+    return styleReferBlock;
+  }
+
+  public void setStyleReferBlock(Block pStyleReferBlock) {
+    styleReferBlock = pStyleReferBlock;
   }
 }
