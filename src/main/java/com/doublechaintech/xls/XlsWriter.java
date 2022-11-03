@@ -2,6 +2,7 @@ package com.doublechaintech.xls;
 
 import cn.hutool.core.codec.Base64;
 import cn.hutool.core.util.ObjectUtil;
+import cn.hutool.core.util.StrUtil;
 import org.apache.poi.common.Duplicatable;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellRangeAddress;
@@ -9,10 +10,12 @@ import org.apache.poi.ss.util.CellUtil;
 import org.apache.poi.ss.util.WorkbookUtil;
 
 import java.io.*;
+import java.util.Iterator;
 import java.util.List;
 
 public class XlsWriter implements BlockWriter {
   private Workbook workBook;
+  private boolean autoHeight = false;
 
   public XlsWriter(String base64) {
     if (ObjectUtil.isEmpty(base64)) {
@@ -23,6 +26,7 @@ public class XlsWriter implements BlockWriter {
     try {
       InputStream stream = new ByteArrayInputStream(decode);
       workBook = WorkbookFactory.create(stream);
+      autoHeight = true;
     } catch (Exception e) {
       e.printStackTrace();
     }
@@ -51,36 +55,17 @@ public class XlsWriter implements BlockWriter {
     if (styleReferBlock != null) {
       Cell styleCell = ensureCell(styleReferBlock);
       CellStyle cellStyle = styleCell.getCellStyle();
-
       if (cellStyle instanceof Duplicatable) {
         Duplicatable copy = ((Duplicatable) cellStyle).copy();
         cell.setCellStyle((CellStyle) copy);
       } else {
         cell.getCellStyle().cloneStyleFrom(cellStyle);
       }
+    }
 
-      // 处理高度
-      String styleCellValue = styleCell.getStringCellValue();
-      String currentValue = cell.getStringCellValue();
-      if (ObjectUtil.isNotEmpty(styleCellValue) && ObjectUtil.isNotEmpty(currentValue)) {
-        int styleValueLength = styleCellValue.length();
-        int cellValueLength = currentValue.length();
-        int styleHeight = getHeight(styleReferBlock);
-        int styleColumnWidth = getWidth(styleReferBlock);
-        int cellColumnWidth = getWidth(pBl);
-        int lines =
-            (styleColumnWidth * cellValueLength + cellColumnWidth * styleValueLength - 1)
-                / (cellColumnWidth * styleValueLength);
-        if (lines > 1) {
-          // 高度，自动换行
-          short currentHeight = cell.getRow().getHeight();
-          short requiredHeight = (short) (styleHeight * lines);
-          if (currentHeight < requiredHeight) {
-            cell.getRow().setHeight(requiredHeight);
-          }
-          cell.getCellStyle().setWrapText(true);
-        }
-      }
+    if (autoHeight) {
+      cell.getCellStyle().setWrapText(true);
+      cell.getRow().setHeight((short) -1);
     }
 
     if (pBl.getProperties() != null) {
@@ -92,32 +77,33 @@ public class XlsWriter implements BlockWriter {
     }
   }
 
-  // 获取一个块的宽度
-  public int getWidth(Block block) {
-    int width = 0;
-    Sheet sheet = ensureSheet(block);
-    for (int i = block.getLeft(); i <= block.getRight(); i++) {
-      width += sheet.getColumnWidth(i);
-    }
-    return width;
-  }
-
-  // 获取一个块的高度
-  public int getHeight(Block block) {
-    int height = 0;
-    Sheet sheet = ensureSheet(block);
-    for (int i = block.getTop(); i <= block.getBottom(); i++) {
-      Row row = sheet.getRow(i);
-      if (row == null) {
-        row = sheet.createRow(i);
-      }
-      height += row.getHeight();
-    }
-    return height;
-  }
-
   @Override
   public void write(OutputStream out) throws IOException {
+    int numberOfSheets = workBook.getNumberOfSheets();
+    for (int i = 0; i < numberOfSheets; i++) {
+      Sheet sheet = workBook.getSheetAt(i);
+      sheet.setPrintGridlines(true);
+      sheet.setDisplayGridlines(true);
+    }
+
+    Sheet sheetAt = workBook.getSheetAt(0);
+    Iterator<Row> iterator = sheetAt.iterator();
+    Row r = null;
+    int maxColumns = -1;
+    while (iterator.hasNext()) {
+      r = iterator.next();
+
+      Iterator<Cell> cellIterator = r.iterator();
+      Cell cell = null;
+      while (cellIterator.hasNext()) {
+        cell = cellIterator.next();
+      }
+
+      if (cell != null && maxColumns < cell.getColumnIndex()) {
+        maxColumns = cell.getColumnIndex();
+      }
+    }
+    workBook.setPrintArea(0, 0, maxColumns, 0, r.getRowNum());
     workBook.write(out);
   }
 
@@ -204,5 +190,35 @@ public class XlsWriter implements BlockWriter {
 
   private boolean isCell(Block pBlock) {
     return pBlock.getBottom() == pBlock.getTop() && pBlock.getLeft() == pBlock.getRight();
+  }
+
+  public static void main(String[] args) throws Exception {
+    XlsWriter writer = new XlsWriter(new File("/Users/jackytian/Desktop/xls测试模板.xlsx"));
+
+    Block style = new Block();
+    style.setTop(0);
+    style.setBottom(0);
+    style.setLeft(0);
+    style.setRight(0);
+
+    Block data = new Block();
+    data.setTop(1);
+    data.setBottom(1);
+    data.setLeft(1);
+    data.setRight(1);
+    data.setValue(StrUtil.repeat("一", 50));
+    data.setStyleReferBlock(style);
+    writer.append(data);
+
+    data = new Block();
+    data.setTop(2);
+    data.setBottom(2);
+    data.setLeft(2);
+    data.setRight(3);
+    data.setValue(StrUtil.repeat("一", 30));
+    data.setStyleReferBlock(style);
+    writer.append(data);
+
+    writer.write(new FileOutputStream("/Users/jackytian/Desktop/xls测试模板-输出.xlsx"));
   }
 }
