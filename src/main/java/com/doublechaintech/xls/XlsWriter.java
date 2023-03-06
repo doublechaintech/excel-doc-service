@@ -69,11 +69,10 @@ public class XlsWriter implements BlockWriter {
     }
 
     if (pBl.getProperties() != null) {
-      Number fillPattern = (Number) pBl.getProperties().get("fillPattern");
-      if (fillPattern != null) {
-        pBl.getProperties().put("fillPattern", fillPattern.shortValue());
+      Number height = (Number) pBl.getProperties().get("height");
+      if (height != null) {
+        cell.getRow().setHeight(height.shortValue());
       }
-      CellUtil.setCellStyleProperties(cell, pBl.getProperties());
     }
   }
 
